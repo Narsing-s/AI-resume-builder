@@ -1,0 +1,36 @@
+<section id="resume-ai" class="card">
+  <h2>AI Resume Generator</h2>
+  <p>Upload your basic resume and let AI rewrite it into a polished version.</p>
+  
+  <input type="file" id="resumeUpload" accept=".txt,.docx,.pdf" />
+  <button onclick="processResume()">Generate Resume</button>
+  
+  <div id="aiResumeOutput" style="margin-top:20px; white-space:pre-wrap;"></div>
+</section>
+
+<script>
+async function processResume() {
+  const fileInput = document.getElementById("resumeUpload");
+  if (!fileInput.files.length) {
+    alert("Please upload a resume file first.");
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    const resumeText = e.target.result;
+
+    // Call backend API
+    const response = await fetch("/api/rewriteResume", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: resumeText })
+    });
+
+    const data = await response.json();
+    document.getElementById("aiResumeOutput").textContent = data.rewrittenResume;
+  };
+  reader.readAsText(file);
+}
+</script>
