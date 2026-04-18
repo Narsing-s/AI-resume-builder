@@ -1,4 +1,3 @@
-// server.js
 import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
@@ -20,7 +19,7 @@ app.post("/api/rewriteResume", async (req, res) => {
       return res.status(400).json({ error: "No resume text provided" });
     }
 
-    // Call OpenAI (replace with Azure OpenAI if you prefer)
+    // Call OpenAI API
     const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
