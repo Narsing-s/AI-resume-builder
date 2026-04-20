@@ -1,25 +1,28 @@
 import express from "express";
-import bodyParser from "body-parser";
 import cors from "cors";
-import fetch from "node-fetch";
 import dotenv from "dotenv";
+import fetch from "node-fetch";
 
 dotenv.config();
+
 const app = express();
 
-// Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(express.json());
 
-// POST route for resume rewriting
+// Test route
+app.get("/", (req, res) => {
+  res.send("Server is running");
+});
+
 app.post("/api/rewriteResume", async (req, res) => {
   try {
     const { text } = req.body;
+
     if (!text) {
       return res.status(400).json({ error: "No resume text provided" });
     }
 
-    // Call OpenAI API
     const aiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -27,23 +30,37 @@ app.post("/api/rewriteResume", async (req, res) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4",
+        model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: "You are a professional resume writer." },
-          { role: "user", content: `Rewrite this resume in a polished, ATS-friendly format. Highlight achievements, add metrics, and improve clarity:\n\n${text}` }
+          {
+            role: "system",
+            content: "You are a professional resume writer."
+          },
+          {
+            role: "user",
+            content: `Rewrite this resume into a polished, ATS-friendly version with bullet points and metrics:\n\n${text}`
+          }
         ]
       })
     });
 
     const result = await aiResponse.json();
+
+    if (!result.choices) {
+      console.error(result);
+      return res.status(500).json({ error: "OpenAI API failed" });
+    }
+
     const rewrittenResume = result.choices[0].message.content;
 
     res.json({ rewrittenResume });
+
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to rewrite resume" });
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-// Run backend on port 5000
-app.listen(5000, () => console.log("Backend running on http://localhost:5000"));
+app.listen(5000, () => {
+  console.log("Server running on http://localhost:5000");
+});
