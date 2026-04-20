@@ -1,36 +1,77 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AI Resume Generator</title>
+</head>
+<body>
+
 <section id="resume-ai" class="card">
   <h2>AI Resume Generator</h2>
-  <p>Upload your basic resume and let AI rewrite it into a polished version.</p>
+  <p>Upload your basic resume (.txt only for now)</p>
   
-  <input type="file" id="resumeUpload" accept=".txt,.docx,.pdf" />
+  <input type="file" id="resumeUpload" accept=".txt" />
   <button onclick="processResume()">Generate Resume</button>
   
+  <div id="status" style="margin-top:10px;color:blue;"></div>
   <div id="aiResumeOutput" style="margin-top:20px; white-space:pre-wrap;"></div>
 </section>
 
 <script>
 async function processResume() {
   const fileInput = document.getElementById("resumeUpload");
+  const status = document.getElementById("status");
+  const output = document.getElementById("aiResumeOutput");
+
   if (!fileInput.files.length) {
     alert("Please upload a resume file first.");
     return;
   }
 
   const file = fileInput.files[0];
+
+  if (!file.name.endsWith(".txt")) {
+    alert("Only .txt files supported for now.");
+    return;
+  }
+
   const reader = new FileReader();
+
   reader.onload = async function(e) {
     const resumeText = e.target.result;
 
-    // Call backend API
-    const response = await fetch("/api/rewriteResume", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text: resumeText })
-    });
+    try {
+      status.textContent = "Processing...";
+      output.textContent = "";
 
-    const data = await response.json();
-    document.getElementById("aiResumeOutput").textContent = data.rewrittenResume;
+      const response = await fetch("http://localhost:5000/api/rewriteResume", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ text: resumeText })
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error(err);
+        status.textContent = "Error from server";
+        return;
+      }
+
+      const data = await response.json();
+
+      status.textContent = "Done ✅";
+      output.textContent = data.rewrittenResume;
+
+    } catch (err) {
+      console.error(err);
+      status.textContent = "Something went wrong";
+    }
   };
+
   reader.readAsText(file);
 }
 </script>
+
+</body>
+</html>
