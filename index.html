@@ -1,77 +1,21 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <title>AI Resume Generator</title>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="AI-powered ATS resume builder with live preview and job matching">
+<title>AI Resume Builder</title><link rel="stylesheet" href="styles.css">
 </head>
 <body>
-
-<section id="resume-ai" class="card">
-  <h2>AI Resume Generator</h2>
-  <p>Upload your basic resume (.txt only for now)</p>
-  
-  <input type="file" id="resumeUpload" accept=".txt" />
-  <button onclick="processResume()">Generate Resume</button>
-  
-  <div id="status" style="margin-top:10px;color:blue;"></div>
-  <div id="aiResumeOutput" style="margin-top:20px; white-space:pre-wrap;"></div>
+<header class="topbar"><div class="brand"><span class="logo">✦</span><div><strong>ResumeAI</strong><small>ATS Resume Builder</small></div></div><div class="top-actions"><button id="sampleBtn" class="ghost">Load sample</button><button id="exportBtn" class="primary">Export PDF</button></div></header>
+<main class="app">
+<section class="editor">
+<div class="hero"><div><span class="eyebrow">AI CAREER STUDIO</span><h1>Build a resume that gets noticed.</h1><p>Write once, optimize for every job, and see your ATS readiness in real time.</p></div><div class="score"><span>ATS SCORE</span><b id="score">0</b><small>/ 100</small></div></div>
+<nav class="tabs"><button class="tab active" data-tab="basics">Basics</button><button class="tab" data-tab="experience">Experience</button><button class="tab" data-tab="education">Education</button><button class="tab" data-tab="skills">Skills</button><button class="tab" data-tab="projects">Projects</button><button class="tab" data-tab="target">Job Match</button></nav>
+<div id="form" class="form"></div>
+<div class="ai-box"><div><span class="eyebrow">AI ASSISTANT</span><h3>Improve your resume</h3><p>Generate a stronger summary, rewrite experience bullets, or tailor the resume to a job description.</p></div><div class="ai-actions"><button id="summaryBtn">✨ Improve summary</button><button id="tailorBtn">🎯 Tailor to job</button></div></div>
 </section>
-
-<script>
-async function processResume() {
-  const fileInput = document.getElementById("resumeUpload");
-  const status = document.getElementById("status");
-  const output = document.getElementById("aiResumeOutput");
-
-  if (!fileInput.files.length) {
-    alert("Please upload a resume file first.");
-    return;
-  }
-
-  const file = fileInput.files[0];
-
-  if (!file.name.endsWith(".txt")) {
-    alert("Only .txt files supported for now.");
-    return;
-  }
-
-  const reader = new FileReader();
-
-  reader.onload = async function(e) {
-    const resumeText = e.target.result;
-
-    try {
-      status.textContent = "Processing...";
-      output.textContent = "";
-
-      const response = await fetch("http://localhost:5000/api/rewriteResume", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ text: resumeText })
-      });
-
-      if (!response.ok) {
-        const err = await response.text();
-        console.error(err);
-        status.textContent = "Error from server";
-        return;
-      }
-
-      const data = await response.json();
-
-      status.textContent = "Done ✅";
-      output.textContent = data.rewrittenResume;
-
-    } catch (err) {
-      console.error(err);
-      status.textContent = "Something went wrong";
-    }
-  };
-
-  reader.readAsText(file);
-}
-</script>
-
-</body>
-</html>
+<aside class="preview-panel"><div class="preview-head"><div><b>Live preview</b><small id="saveState">Saved locally</small></div><select id="template"><option value="modern">Modern</option><option value="classic">Classic</option><option value="minimal">Minimal</option></select></div><div id="preview" class="paper"></div></aside>
+</main>
+<div id="toast" class="toast"></div><div id="modal" class="modal hidden"><div class="modal-card"><button id="closeModal" class="close">×</button><span class="eyebrow">AI SUGGESTIONS</span><h2 id="modalTitle">Suggestions</h2><div id="modalBody"></div></div></div>
+<script src="app.js"></script>
+</body></html>
