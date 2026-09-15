@@ -1,32 +1,355 @@
-const KEY="resume-ai-v2";
-const empty={name:"",title:"",email:"",phone:"",location:"",linkedin:"",website:"",summary:"",skills:[],experience:[],education:[],projects:[],certifications:[],jobDescription:""};
-let data=JSON.parse(localStorage.getItem(KEY)||"null")||structuredClone(empty);let tab="basics";
-const esc=s=>String(s??"").replace(/[&<>\"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
-const save=()=>{localStorage.setItem(KEY,JSON.stringify(data));document.querySelector("#saveState").textContent="Saved locally";analyze()};
-const toast=m=>{const t=document.querySelector("#toast");t.textContent=m;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)};
-function field(label,key,value,type="input",full=false){return `<div class="field ${full?'full':''}"><label>${label}</label>${type==='textarea'?`<textarea data-key="${key}">${esc(value)}</textarea>`:`<input data-key="${key}" value="${esc(value)}">`}</div>`}
-function renderForm(){const f=document.querySelector("#form");if(tab==='basics')f.innerHTML=`<div class="grid">${field('Full name','name',data.name)}${field('Professional title','title',data.title)}${field('Email','email',data.email)}${field('Phone','phone',data.phone)}${field('Location','location',data.location)}${field('LinkedIn','linkedin',data.linkedin)}${field('Website','website',data.website)}${field('Professional summary','summary',data.summary,'textarea',true)}</div>`;
-if(tab==='experience')f.innerHTML=`<div id="experienceList">${(data.experience||[]).map((x,i)=>entry('experience',x,i,`<div class="grid">${field('Role','role',x.role)}${field('Company','company',x.company)}${field('Location','location',x.location)}${field('Dates','dates',x.dates)}${field('Bullets (one per line)','bullets',(x.bullets||[]).join('\n'),'textarea',true)}</div>`).join('')}</div><button class="small-btn" onclick="addEntry('experience')">＋ Add experience</button>`;
-if(tab==='education')f.innerHTML=`${(data.education||[]).map((x,i)=>entry('education',x,i,`<div class="grid">${field('Degree','degree',x.degree)}${field('School','school',x.school)}${field('Location','location',x.location)}${field('Dates','dates',x.dates)}</div>`).join('')}<button class="small-btn" onclick="addEntry('education')">＋ Add education</button>`;
-if(tab==='skills')f.innerHTML=`<div class="field"><label>Skills</label><textarea id="skillsInput" placeholder="Type skills separated by commas">${esc((data.skills||[]).join(', '))}</textarea></div><div class="field"><label>Certifications</label><textarea id="certInput" placeholder="One certification per line">${esc((data.certifications||[]).join('\n'))}</textarea></div>`;
-if(tab==='projects')f.innerHTML=`${(data.projects||[]).map((x,i)=>entry('projects',x,i,`<div class="grid">${field('Project name','name',x.name)}${field('Technologies','tech',(x.tech||[]).join(', '))}${field('Description','description',x.description,'textarea',true)}</div>`).join('')}<button class="small-btn" onclick="addEntry('projects')">＋ Add project</button>`;
-if(tab==='target')f.innerHTML=`<div class="field"><label>Paste job description</label><textarea id="jd" style="min-height:300px" placeholder="Paste the job description here to calculate keyword match and tailor your resume.">${esc(data.jobDescription)}</textarea></div><button class="primary" id="analyzeBtn">Analyze job match</button><div id="analysis" class="section-card" style="margin-top:15px"></div>`;bindInputs();if(tab==='target')document.querySelector('#analysis').innerHTML=analysisHTML(lastAnalysis||{score:0,matched:[],missing:[]});}
-function entry(type,x,i,inside){return `<div class="section-card"><div class="section-head"><b>${x.role||x.degree||x.name||`New ${type}`}</b><button class="small-btn danger" onclick="removeEntry('${type}',${i})">Remove</button></div>${inside}</div>`}
-function bindInputs(){document.querySelectorAll('[data-key]').forEach(el=>el.oninput=()=>{data[el.dataset.key]=el.value;save()});const s=document.querySelector('#skillsInput');if(s)s.oninput=()=>{data.skills=s.value.split(',').map(x=>x.trim()).filter(Boolean);save()};const c=document.querySelector('#certInput');if(c)c.oninput=()=>{data.certifications=c.value.split('\n').map(x=>x.trim()).filter(Boolean);save()};const jd=document.querySelector('#jd');if(jd)jd.oninput=()=>{data.jobDescription=jd.value;save()};const ab=document.querySelector('#analyzeBtn');if(ab)ab.onclick=analyze}
-function addEntry(type){data[type].push(type==='experience'?{role:'',company:'',location:'',dates:'',bullets:['']} : type==='education'?{degree:'',school:'',location:'',dates:''}:{name:'',tech:[],description:''});renderForm();save()}
-function removeEntry(type,i){data[type].splice(i,1);renderForm();save()}
-document.addEventListener('input',e=>{if(e.target.matches('[data-key]')){const card=e.target.closest('.section-card');if(!card)return;const cards=[...document.querySelectorAll('#form .section-card')];const type=tab;let idx=cards.indexOf(card);if(type==='experience'||type==='education'||type==='projects'){const key=e.target.dataset.key;const map={experience:data.experience,education:data.education,projects:data.projects};if(map[type][idx])map[type][idx][key]=key==='bullets'?e.target.value.split('\n').filter(Boolean):key==='tech'?e.target.value.split(',').map(x=>x.trim()).filter(Boolean):e.target.value;save()}}});
-let lastAnalysis=null;
-function analysisHTML(a){return `<div><b>Job match: ${a.score||0}/100</b><p>Matched keywords: ${(a.matched||[]).slice(0,18).join(', ')||'None yet'}</p><p>Missing keywords: ${(a.missing||[]).slice(0,18).join(', ')||'Great coverage'}</p></div>`}
-async function analyze(){try{const r=await fetch('/api/ats/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resume:data,jobDescription:data.jobDescription})});lastAnalysis=await r.json();document.querySelector('#score').textContent=lastAnalysis.score||0;if(tab==='target'&&document.querySelector('#analysis'))document.querySelector('#analysis').innerHTML=analysisHTML(lastAnalysis)}catch{}}
-function preview(){const p=document.querySelector('#preview');p.innerHTML=`<div class="resume-name">${esc(data.name||'Your Name')}</div><div class="resume-title">${esc(data.title||'Professional Title')}</div><div class="contact">${[data.email,data.phone,data.location,data.linkedin,data.website].filter(Boolean).map(esc).join(' · ')||'email@example.com · Location'}</div>${data.summary?`<section class="rsec"><h4>PROFILE</h4><p>${esc(data.summary)}</p></section>`:''}${data.experience?.length?`<section class="rsec"><h4>EXPERIENCE</h4>${data.experience.map(x=>`<div class="job"><div class="jobtop"><b>${esc(x.role)}</b><span>${esc(x.dates)}</span></div><em>${esc(x.company)}${x.location?' · '+esc(x.location):''}</em><ul>${(x.bullets||[]).filter(Boolean).map(b=>`<li>${esc(b)}</li>`).join('')}</ul></div>`).join('')}</section>`:''}${data.education?.length?`<section class="rsec"><h4>EDUCATION</h4>${data.education.map(x=>`<div class="job"><div class="jobtop"><b>${esc(x.degree)}</b><span>${esc(x.dates)}</span></div><em>${esc(x.school)}${x.location?' · '+esc(x.location):''}</em></div>`).join('')}</section>`:''}${data.skills?.length?`<section class="rsec"><h4>SKILLS</h4><div class="chips">${data.skills.map(x=>`<span class="chip">${esc(x)}</span>`).join('')}</div></section>`:''}${data.projects?.length?`<section class="rsec"><h4>PROJECTS</h4>${data.projects.map(x=>`<div class="job"><b>${esc(x.name)}</b><p>${esc(x.description)}</p><span>${esc((x.tech||[]).join(' · '))}</span></div>`).join('')}</section>`:''}${data.certifications?.length?`<section class="rsec"><h4>CERTIFICATIONS</h4><p>${data.certifications.map(esc).join(' · ')}</p></section>`:''}`}
-function render(){renderForm();preview();analyze()}
-document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));b.classList.add('active');tab=b.dataset.tab;renderForm()});
-document.querySelector('#template').onchange=e=>document.querySelector('#preview').dataset.template=e.target.value;
-document.querySelector('#sampleBtn').onclick=()=>{data={...empty,name:'Narsing Beesetti',title:'MuleSoft Developer | Production Support',email:'narsing@example.com',phone:'+91 90000 00000',location:'Hyderabad, India',linkedin:'linkedin.com/in/narsing',summary:'MuleSoft developer with experience in API-led connectivity, DataWeave, REST integrations and production support. Skilled in monitoring, incident resolution and building reliable integrations.',skills:['MuleSoft','Anypoint Platform','DataWeave 2.0','REST API','APIKit','Java','Git','Dynatrace'],experience:[{role:'MuleSoft Developer',company:'Technology Company',location:'India',dates:'2023 — Present',bullets:['Developed REST APIs using MuleSoft and API-led connectivity patterns.','Resolved production incidents and improved integration stability through monitoring and root-cause analysis.','Created DataWeave transformations and reusable integration components.']}],education:[{degree:'Bachelor of Technology',school:'University',location:'India',dates:'2019 — 2023'}],projects:[{name:'Bank Account API',tech:['MuleSoft','DataWeave','MySQL'],description:'Built API-led banking services for account creation, retrieval and updates.'}],certifications:[],jobDescription:''};save();render()};
-document.querySelector('#exportBtn').onclick=()=>window.print();
-async function aiAction(url,body,title){document.querySelector('#modal').classList.remove('hidden');document.querySelector('#modalTitle').textContent=title;document.querySelector('#modalBody').innerHTML='<p class="suggestion">Generating suggestions…</p>';try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(!r.ok)throw Error(d.error);document.querySelector('#modalBody').innerHTML=`<div class="suggestion">${esc(d.result||d.rewrittenResume||'No result')}</div>`}catch(e){document.querySelector('#modalBody').innerHTML=`<p class="suggestion">${esc(e.message)}</p>`}}
-document.querySelector('#summaryBtn').onclick=()=>aiAction('/api/ai/summary',{resume:data,targetRole:data.title},'AI summary options');
-document.querySelector('#tailorBtn').onclick=()=>{if(!data.jobDescription){toast('Add a job description first');tab='target';document.querySelector('[data-tab="target"]').click();return}aiAction('/api/ai/tailor',{resume:data,jobDescription:data.jobDescription},'Tailored resume recommendations')};
-document.querySelector('#closeModal').onclick=()=>document.querySelector('#modal').classList.add('hidden');
-render();
+const STORAGE_KEY = "resume-ai-v3";
+
+const EMPTY_RESUME = {
+  name: "", title: "", email: "", phone: "", location: "", linkedin: "", website: "",
+  summary: "", skills: [], experience: [], education: [], projects: [], certifications: [], jobDescription: ""
+};
+
+const SAMPLE_RESUME = {
+  ...EMPTY_RESUME,
+  name: "Narsing Beesetti",
+  title: "MuleSoft Developer | Production Support",
+  email: "narsing@example.com",
+  phone: "+91 90000 00000",
+  location: "Hyderabad, India",
+  linkedin: "linkedin.com/in/narsing",
+  summary: "MuleSoft developer with experience in API-led connectivity, DataWeave, REST integrations and production support. Skilled in monitoring, incident resolution and building reliable integrations.",
+  skills: ["MuleSoft", "Anypoint Platform", "DataWeave 2.0", "REST API", "APIKit", "Java", "Git", "Dynatrace"],
+  experience: [{ role: "MuleSoft Developer", company: "Technology Company", location: "India", dates: "2023 — Present", bullets: ["Developed REST APIs using MuleSoft and API-led connectivity patterns.", "Resolved production incidents and improved integration stability through monitoring and root-cause analysis.", "Created DataWeave transformations and reusable integration components."] }],
+  education: [{ degree: "Bachelor of Technology", school: "University", location: "India", dates: "2019 — 2023" }],
+  projects: [{ name: "Bank Account API", tech: ["MuleSoft", "DataWeave", "MySQL"], description: "Built API-led banking services for account creation, retrieval and updates." }],
+  certifications: []
+};
+
+let data = loadResume();
+let activeTab = "basics";
+let activeTemplate = localStorage.getItem("resume-ai-template") || "modern";
+let lastAnalysis = { score: 0, matched: [], missing: [], keywords: [] };
+
+function clone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+function loadResume() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+    return saved && typeof saved === "object" ? { ...clone(EMPTY_RESUME), ...saved } : clone(EMPTY_RESUME);
+  } catch (error) {
+    localStorage.removeItem(STORAGE_KEY);
+    return clone(EMPTY_RESUME);
+  }
+}
+
+function esc(value) {
+  return String(value ?? "").replace(/[&<>\"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[char]));
+}
+
+function save(showState = true) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  if (showState) setSaveState("Saved locally");
+  updatePreview();
+  analyze();
+}
+
+function setSaveState(text) {
+  const el = document.querySelector("#saveState");
+  if (el) el.textContent = text;
+}
+
+function toast(message) {
+  const el = document.querySelector("#toast");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+function field(label, key, value, type = "input", full = false, placeholder = "") {
+  const cls = `field${full ? " full" : ""}`;
+  if (type === "textarea") return `<div class="${cls}"><label>${label}</label><textarea data-key="${key}" placeholder="${esc(placeholder)}">${esc(value)}</textarea></div>`;
+  return `<div class="${cls}"><label>${label}</label><input data-key="${key}" value="${esc(value)}" placeholder="${esc(placeholder)}"></div>`;
+}
+
+function renderForm() {
+  const form = document.querySelector("#form");
+  if (!form) return;
+
+  if (activeTab === "basics") {
+    form.innerHTML = `<div class="grid">
+      ${field("Full name", "name", data.name, "input", false, "Your full name")}
+      ${field("Professional title", "title", data.title, "input", false, "Target role")}
+      ${field("Email", "email", data.email, "input", false, "name@example.com")}
+      ${field("Phone", "phone", data.phone, "input", false, "+91 ...")}
+      ${field("Location", "location", data.location, "input", false, "City, Country")}
+      ${field("LinkedIn", "linkedin", data.linkedin, "input", false, "linkedin.com/in/...")}
+      ${field("Website", "website", data.website, "input", false, "yourwebsite.com")}
+      ${field("Professional summary", "summary", data.summary, "textarea", true, "Write a concise professional summary...")}
+    </div>`;
+    return;
+  }
+
+  if (activeTab === "experience") {
+    form.innerHTML = `<div>${(data.experience || []).map((item, index) => entryCard("experience", item, index, `
+      <div class="grid">
+        ${field("Role", "role", item.role)}
+        ${field("Company", "company", item.company)}
+        ${field("Location", "location", item.location)}
+        ${field("Dates", "dates", item.dates)}
+        ${field("Bullets (one per line)", "bullets", (item.bullets || []).join("\n"), "textarea", true, "Describe achievements and responsibilities...")}
+      </div>`)).join("")}</div>
+      <button type="button" class="small-btn" data-action="add" data-type="experience">＋ Add experience</button>`;
+    return;
+  }
+
+  if (activeTab === "education") {
+    form.innerHTML = `${(data.education || []).map((item, index) => entryCard("education", item, index, `
+      <div class="grid">
+        ${field("Degree", "degree", item.degree)}
+        ${field("School", "school", item.school)}
+        ${field("Location", "location", item.location)}
+        ${field("Dates", "dates", item.dates)}
+      </div>`)).join("")}
+      <button type="button" class="small-btn" data-action="add" data-type="education">＋ Add education</button>`;
+    return;
+  }
+
+  if (activeTab === "skills") {
+    form.innerHTML = `<div class="field"><label>Skills</label><textarea id="skillsInput" placeholder="Type skills separated by commas">${esc((data.skills || []).join(", "))}</textarea></div>
+      <div class="field"><label>Certifications</label><textarea id="certInput" placeholder="One certification per line">${esc((data.certifications || []).join("\n"))}</textarea></div>
+      <p class="helper">Skills and certifications update the live resume automatically.</p>`;
+    return;
+  }
+
+  if (activeTab === "projects") {
+    form.innerHTML = `${(data.projects || []).map((item, index) => entryCard("projects", item, index, `
+      <div class="grid">
+        ${field("Project name", "name", item.name)}
+        ${field("Technologies", "tech", (item.tech || []).join(", "))}
+        ${field("Description", "description", item.description, "textarea", true, "Describe the project and your contribution...")}
+      </div>`)).join("")}
+      <button type="button" class="small-btn" data-action="add" data-type="projects">＋ Add project</button>`;
+    return;
+  }
+
+  if (activeTab === "target") {
+    form.innerHTML = `<div class="field"><label>Paste job description</label><textarea id="jd" style="min-height:300px" placeholder="Paste the job description here to calculate keyword match and tailor your resume.">${esc(data.jobDescription)}</textarea></div>
+      <div class="button-row"><button type="button" class="primary" data-action="analyze">Analyze job match</button><button type="button" class="ghost" data-action="clear-jd">Clear job description</button></div>
+      <div id="analysis" class="section-card" style="margin-top:15px">${analysisHTML(lastAnalysis)}</div>`;
+  }
+}
+
+function entryCard(type, item, index, inside) {
+  const heading = item.role || item.degree || item.name || `New ${type}`;
+  return `<div class="section-card" data-entry-type="${type}" data-entry-index="${index}">
+    <div class="section-head"><b>${esc(heading)}</b><button type="button" class="small-btn danger" data-action="remove" data-type="${type}" data-index="${index}">Remove</button></div>
+    ${inside}
+  </div>`;
+}
+
+function updateEntry(type, index, key, value) {
+  if (!data[type] || !data[type][index]) return;
+  if (key === "bullets") data[type][index][key] = value.split("\n").map(v => v.trim()).filter(Boolean);
+  else if (key === "tech") data[type][index][key] = value.split(",").map(v => v.trim()).filter(Boolean);
+  else data[type][index][key] = value;
+  save(false);
+}
+
+function addEntry(type) {
+  if (!Array.isArray(data[type])) data[type] = [];
+  if (type === "experience") data[type].push({ role: "", company: "", location: "", dates: "", bullets: [""] });
+  if (type === "education") data[type].push({ degree: "", school: "", location: "", dates: "" });
+  if (type === "projects") data[type].push({ name: "", tech: [], description: "" });
+  renderForm();
+  save();
+  toast(`${type.charAt(0).toUpperCase() + type.slice(1)} added`);
+}
+
+function removeEntry(type, index) {
+  if (!Array.isArray(data[type])) return;
+  data[type].splice(index, 1);
+  renderForm();
+  save();
+  toast("Removed");
+}
+
+function analysisHTML(result) {
+  const a = result || {};
+  return `<div><b>Job match: ${Number(a.score || 0)}/100</b>
+    <p>Matched keywords: ${(a.matched || []).slice(0, 18).join(", ") || "None yet"}</p>
+    <p>Missing keywords: ${(a.missing || []).slice(0, 18).join(", ") || "Great coverage"}</p></div>`;
+}
+
+async function analyze() {
+  const score = document.querySelector("#score");
+  try {
+    const response = await fetch("/api/ats/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ resume: data, jobDescription: data.jobDescription || "" })
+    });
+    if (!response.ok) throw new Error("ATS analysis unavailable");
+    lastAnalysis = await response.json();
+    if (score) score.textContent = lastAnalysis.score || 0;
+    const analysis = document.querySelector("#analysis");
+    if (analysis) analysis.innerHTML = analysisHTML(lastAnalysis);
+  } catch (error) {
+    if (score) score.textContent = "—";
+  }
+}
+
+function updatePreview() {
+  const preview = document.querySelector("#preview");
+  if (!preview) return;
+  preview.dataset.template = activeTemplate;
+  preview.innerHTML = `
+    <div class="resume-name">${esc(data.name || "Your Name")}</div>
+    <div class="resume-title">${esc(data.title || "Professional Title")}</div>
+    <div class="contact">${[data.email, data.phone, data.location, data.linkedin, data.website].filter(Boolean).map(esc).join(" · ") || "email@example.com · Location"}</div>
+    ${data.summary ? `<section class="rsec"><h4>PROFILE</h4><p>${esc(data.summary)}</p></section>` : ""}
+    ${data.experience?.length ? `<section class="rsec"><h4>EXPERIENCE</h4>${data.experience.map(item => `<div class="job"><div class="jobtop"><b>${esc(item.role)}</b><span>${esc(item.dates)}</span></div><em>${esc(item.company)}${item.location ? " · " + esc(item.location) : ""}</em><ul>${(item.bullets || []).filter(Boolean).map(b => `<li>${esc(b)}</li>`).join("")}</ul></div>`).join("")}</section>` : ""}
+    ${data.education?.length ? `<section class="rsec"><h4>EDUCATION</h4>${data.education.map(item => `<div class="job"><div class="jobtop"><b>${esc(item.degree)}</b><span>${esc(item.dates)}</span></div><em>${esc(item.school)}${item.location ? " · " + esc(item.location) : ""}</em></div>`).join("")}</section>` : ""}
+    ${data.skills?.length ? `<section class="rsec"><h4>SKILLS</h4><div class="chips">${data.skills.map(skill => `<span class="chip">${esc(skill)}</span>`).join("")}</div></section>` : ""}
+    ${data.projects?.length ? `<section class="rsec"><h4>PROJECTS</h4>${data.projects.map(item => `<div class="job"><b>${esc(item.name)}</b><p>${esc(item.description)}</p><span>${esc((item.tech || []).join(" · "))}</span></div>`).join("")}</section>` : ""}
+    ${data.certifications?.length ? `<section class="rsec"><h4>CERTIFICATIONS</h4><p>${data.certifications.map(esc).join(" · ")}</p></section>` : ""}
+  `;
+}
+
+function switchTab(tab) {
+  activeTab = tab;
+  document.querySelectorAll(".tab").forEach(button => button.classList.toggle("active", button.dataset.tab === tab));
+  renderForm();
+}
+
+function loadSample() {
+  data = clone(SAMPLE_RESUME);
+  save();
+  switchTab("basics");
+  toast("Sample resume loaded");
+}
+
+function resetResume() {
+  if (!window.confirm("Clear the entire resume? This cannot be undone.")) return;
+  data = clone(EMPTY_RESUME);
+  localStorage.removeItem(STORAGE_KEY);
+  save();
+  switchTab("basics");
+  toast("Resume cleared");
+}
+
+function exportPDF() {
+  updatePreview();
+  window.print();
+}
+
+function openModal(title, content) {
+  const modal = document.querySelector("#modal");
+  if (!modal) return;
+  document.querySelector("#modalTitle").textContent = title;
+  document.querySelector("#modalBody").innerHTML = content;
+  modal.classList.remove("hidden");
+}
+
+function closeModal() {
+  document.querySelector("#modal")?.classList.add("hidden");
+}
+
+async function aiAction(url, body, title) {
+  openModal(title, `<p class="suggestion">Generating suggestions…</p>`);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || "AI request failed");
+    openModal(title, `<div class="suggestion">${esc(result.result || result.rewrittenResume || "No result returned")}</div>`);
+  } catch (error) {
+    openModal(title, `<p class="suggestion">${esc(error.message)}</p>`);
+  }
+}
+
+function handleClick(event) {
+  const tabButton = event.target.closest(".tab");
+  if (tabButton) {
+    switchTab(tabButton.dataset.tab);
+    return;
+  }
+
+  const actionButton = event.target.closest("[data-action]");
+  if (!actionButton) return;
+  const action = actionButton.dataset.action;
+
+  if (action === "add") addEntry(actionButton.dataset.type);
+  else if (action === "remove") removeEntry(actionButton.dataset.type, Number(actionButton.dataset.index));
+  else if (action === "analyze") analyze();
+  else if (action === "clear-jd") {
+    data.jobDescription = "";
+    renderForm();
+    save();
+    toast("Job description cleared");
+  }
+}
+
+function handleInput(event) {
+  const target = event.target;
+  if (target.matches("[data-key]") && !target.closest("[data-entry-type]")) {
+    data[target.dataset.key] = target.value;
+    save(false);
+    return;
+  }
+  const card = target.closest("[data-entry-type]");
+  if (card && target.matches("[data-key]")) {
+    updateEntry(card.dataset.entryType, Number(card.dataset.entryIndex), target.dataset.key, target.value);
+    return;
+  }
+  if (target.id === "skillsInput") {
+    data.skills = target.value.split(",").map(v => v.trim()).filter(Boolean);
+    save(false);
+  } else if (target.id === "certInput") {
+    data.certifications = target.value.split("\n").map(v => v.trim()).filter(Boolean);
+    save(false);
+  } else if (target.id === "jd") {
+    data.jobDescription = target.value;
+    save(false);
+  }
+}
+
+function init() {
+  document.addEventListener("click", handleClick);
+  document.addEventListener("input", handleInput);
+
+  document.querySelector("#sampleBtn")?.addEventListener("click", loadSample);
+  document.querySelector("#exportBtn")?.addEventListener("click", exportPDF);
+  document.querySelector("#summaryBtn")?.addEventListener("click", () => aiAction("/api/ai/summary", { resume: data, targetRole: data.title }, "AI summary options"));
+  document.querySelector("#tailorBtn")?.addEventListener("click", () => {
+    if (!data.jobDescription.trim()) {
+      toast("Add a job description first");
+      switchTab("target");
+      return;
+    }
+    aiAction("/api/ai/tailor", { resume: data, jobDescription: data.jobDescription }, "Tailored resume recommendations");
+  });
+  document.querySelector("#closeModal")?.addEventListener("click", closeModal);
+  document.querySelector("#modal")?.addEventListener("click", event => { if (event.target.id === "modal") closeModal(); });
+  document.addEventListener("keydown", event => { if (event.key === "Escape") closeModal(); });
+
+  const template = document.querySelector("#template");
+  if (template) {
+    template.value = activeTemplate;
+    template.addEventListener("change", event => {
+      activeTemplate = event.target.value;
+      localStorage.setItem("resume-ai-template", activeTemplate);
+      updatePreview();
+      toast(`${event.target.options[event.target.selectedIndex].text} template selected`);
+    });
+  }
+
+  renderForm();
+  updatePreview();
+  analyze();
+}
+
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+else init();
